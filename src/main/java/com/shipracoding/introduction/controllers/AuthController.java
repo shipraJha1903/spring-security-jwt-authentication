@@ -1,6 +1,7 @@
 package com.shipracoding.introduction.controllers;
 
 import com.shipracoding.introduction.dto.LoginDto;
+import com.shipracoding.introduction.dto.LoginResponseDto;
 import com.shipracoding.introduction.dto.SignUpDto;
 import com.shipracoding.introduction.dto.UserDto;
 import com.shipracoding.introduction.services.AuthService;
@@ -10,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,14 +31,31 @@ public class AuthController {
     }
 
     @PostMapping(path = "/login")
-    public ResponseEntity<String> login(@RequestBody LoginDto loginDto,
+    public ResponseEntity<LoginResponseDto> login(@RequestBody LoginDto loginDto,
                                         HttpServletResponse response){
-        String token = authService.login(loginDto);
+        LoginResponseDto loginResponseDto = authService.login(loginDto);
 
-        Cookie cookie = new Cookie("token",token);
+        Cookie cookie = new Cookie("refreshToken",loginResponseDto.getRefreshToken());
         cookie.setHttpOnly(true);
         response.addCookie(cookie);
-        return ResponseEntity.ok(token);
+        return ResponseEntity.ok(loginResponseDto);
     }
-    // this will return a token (string)
+
+    @PostMapping(path = "/refresh")
+    public ResponseEntity<LoginResponseDto> refresh(HttpServletRequest request){
+        Cookie[] cookies =  request.getCookies();
+        if(cookies == null){
+            throw new InsufficientAuthenticationException("refresh token not found");
+        }
+        String refreshToken = null;
+        for(Cookie cookie:cookies){
+            if("refreshToken".equals(cookie.getName())){
+                refreshToken = cookie.getValue();
+                break;
+            }
+        }
+        LoginResponseDto loginResponseDto = authService.refreshToken(refreshToken);
+        return ResponseEntity.ok(loginResponseDto);
+    }
+    //This is basic level do the same stuff using Arrays.stream -> more production ready way...
 }
